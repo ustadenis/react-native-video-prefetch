@@ -9,8 +9,15 @@ import androidx.annotation.NonNull;
 import androidx.core.app.JobIntentService;
 
 import com.brentvatne.exoplayer.DataSourceUtil;
+import com.google.android.exoplayer2.MediaItem;
+import com.google.android.exoplayer2.offline.Downloader;
+import com.google.android.exoplayer2.offline.StreamKey;
+import com.google.android.exoplayer2.source.hls.offline.HlsDownloader;
+import com.google.android.exoplayer2.source.hls.playlist.HlsMultivariantPlaylist;
 import com.google.android.exoplayer2.upstream.DataSpec;
 import com.google.android.exoplayer2.upstream.cache.CacheWriter;
+
+import java.util.Collections;
 
 public class CachingJobIntentService extends JobIntentService implements CacheWriter.ProgressListener {
 
@@ -32,13 +39,21 @@ public class CachingJobIntentService extends JobIntentService implements CacheWr
         Log.d(TAG, "onHandleWork() called with: intent = [" + urlToPrefetch + "]");
         Uri uri = Uri.parse(urlToPrefetch);
 
+        MediaItem mediaItem = new MediaItem.Builder()
+                .setUri(uri)
+                .setStreamKeys(Collections.singletonList(new StreamKey(HlsMultivariantPlaylist.GROUP_INDEX_VARIANT, 0)))
+                .build();
 
         try {
-            CacheWriter cacheWriter = new CacheWriter(DataSourceUtil.cacheDataSourceAtomicReference.get(), new DataSpec(uri), null, this);
-            cacheWriter.cache();
+            HlsDownloader hlsDownloader = new HlsDownloader(mediaItem, DataSourceUtil.cacheDataSourceAtomicReference.get());
+            hlsDownloader.download(new Downloader.ProgressListener() {
+                @Override
+                public void onProgress(long contentLength, long bytesDownloaded, float percentDownloaded) {
+                    Log.e("Denis", "onProgress() called with: contentLength = [" + contentLength + "], bytesDownloaded = [" + bytesDownloaded + "], percentDownloaded = [" + percentDownloaded + "]");
+                }
+            });
         } catch (Exception e) {
-            Log.e(TAG, "onHandleWork: " + e.getMessage(), e);
-            // TODO log to Firebase?
+            Log.e("Denis", e.getMessage());
         }
     }
 

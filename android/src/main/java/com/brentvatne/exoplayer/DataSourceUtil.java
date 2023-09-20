@@ -34,7 +34,7 @@ public class DataSourceUtil {
     private static DataSource.Factory defaultDataSourceFactory = null;
     private static HttpDataSource.Factory defaultHttpDataSourceFactory = null;
     private static String userAgent = null;
-    public static AtomicReference<CacheDataSource> cacheDataSourceAtomicReference = null;
+    public static AtomicReference<CacheDataSource.Factory> cacheDataSourceAtomicReference = null;
 
     public static void setUserAgent(String userAgent) {
         DataSourceUtil.userAgent = userAgent;
@@ -110,7 +110,7 @@ public class DataSourceUtil {
                 })
                 .setUpstreamDataSourceFactory(httpDataSourceFactory)
                 .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR);
-        cacheDataSourceAtomicReference = new AtomicReference<>(factory.createDataSource());
+        cacheDataSourceAtomicReference = new AtomicReference<>(factory);
         return new DefaultDataSource.Factory(context, factory);
     }
 
