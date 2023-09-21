@@ -14,10 +14,14 @@ import com.google.android.exoplayer2.offline.Downloader;
 import com.google.android.exoplayer2.offline.StreamKey;
 import com.google.android.exoplayer2.source.hls.offline.HlsDownloader;
 import com.google.android.exoplayer2.source.hls.playlist.HlsMultivariantPlaylist;
-import com.google.android.exoplayer2.upstream.DataSpec;
+import com.google.android.exoplayer2.upstream.cache.CacheDataSource;
 import com.google.android.exoplayer2.upstream.cache.CacheWriter;
 
 import java.util.Collections;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class CachingJobIntentService extends JobIntentService implements CacheWriter.ProgressListener {
 
@@ -25,6 +29,11 @@ public class CachingJobIntentService extends JobIntentService implements CacheWr
     private static final String TAG = "CachingJobIntentService";
     private static final String JOB_NAME = "CachingJobIntentService.Prefetch";
     private static final String URL = "CachingJobIntentService.URL";
+
+    private final ThreadPoolExecutor executor = new ThreadPoolExecutor(
+            2, 2, 1000, TimeUnit.MILLISECONDS,
+            new LinkedBlockingQueue<>()
+    );
 
     public static void enqueuePrefetchWork(Context context, String url) {
         Log.d(TAG, "enqueuePrefetchWork: " + url);
@@ -39,22 +48,48 @@ public class CachingJobIntentService extends JobIntentService implements CacheWr
         Log.d(TAG, "onHandleWork() called with: intent = [" + urlToPrefetch + "]");
         Uri uri = Uri.parse(urlToPrefetch);
 
+        AtomicReference<CacheDataSource.Factory> factoryRef = DataSourceUtil.cacheDataSourceAtomicReference;
+
+        if (factoryRef == null) {
+            // Re-enqueue
+            enqueuePrefetchWork(this, urlToPrefetch);
+            return;
+        }
+
         MediaItem mediaItem = new MediaItem.Builder()
                 .setUri(uri)
                 .setStreamKeys(Collections.singletonList(new StreamKey(HlsMultivariantPlaylist.GROUP_INDEX_VARIANT, 0)))
+                .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                                .setEndPositionMs(5 * 1000)
+                                .build()
+                )
                 .build();
 
-        try {
-            HlsDownloader hlsDownloader = new HlsDownloader(mediaItem, DataSourceUtil.cacheDataSourceAtomicReference.get());
-            hlsDownloader.download(new Downloader.ProgressListener() {
-                @Override
-                public void onProgress(long contentLength, long bytesDownloaded, float percentDownloaded) {
-                    Log.e("Denis", "onProgress() called with: contentLength = [" + contentLength + "], bytesDownloaded = [" + bytesDownloaded + "], percentDownloaded = [" + percentDownloaded + "]");
+        executor.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    HlsDownloader hlsDownloader = new HlsDownloader(mediaItem, factoryRef.get());
+                    hlsDownloader.download(new Downloader.ProgressListener() {
+                        @Override
+                        public void onProgress(long contentLength, long bytesDownloaded, float percentDownloaded) {
+                            if (bytesDownloaded > 5 * 1024 * 1024) {
+                                hlsDownloader.cancel();
+                                Log.e(TAG, "OnChached() bytesDownloaded = [" + bytesDownloaded + "], percentDownloaded = [" + percentDownloaded + "]\n" +
+                                        urlToPrefetch);
+                            }
+                            if (percentDownloaded >= 100) {
+                                Log.e(TAG, "OnChached() bytesDownloaded = [" + bytesDownloaded + "], percentDownloaded = [" + percentDownloaded + "]\n" +
+                                        urlToPrefetch);
+                            }
+                        }
+                    });
+                } catch (Exception e) {
+                    Log.e(TAG, e.toString());
                 }
-            });
-        } catch (Exception e) {
-            Log.e("Denis", e.getMessage());
-        }
+            }
+        });
     }
 
     @Override

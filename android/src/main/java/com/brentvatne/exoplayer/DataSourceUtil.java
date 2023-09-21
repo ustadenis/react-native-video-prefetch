@@ -9,12 +9,11 @@ import com.facebook.react.modules.network.ForwardingCookieHandler;
 import com.facebook.react.modules.network.OkHttpClientProvider;
 import com.google.android.exoplayer2.ext.okhttp.OkHttpDataSource;
 import com.google.android.exoplayer2.upstream.DataSource;
-import com.google.android.exoplayer2.upstream.DataSpec;
 import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer2.upstream.DefaultDataSource;
 import com.google.android.exoplayer2.upstream.HttpDataSource;
+import com.google.android.exoplayer2.upstream.cache.CacheDataSink;
 import com.google.android.exoplayer2.upstream.cache.CacheDataSource;
-import com.google.android.exoplayer2.upstream.cache.CacheKeyFactory;
 import com.google.android.exoplayer2.util.Util;
 
 import java.util.Map;
@@ -97,6 +96,9 @@ public class DataSourceUtil {
         HttpDataSource.Factory httpDataSourceFactory = buildHttpDataSourceFactory(context, bandwidthMeter, requestHeaders);
         CacheDataSource.Factory factory = new CacheDataSource.Factory()
                 .setCache(SharedExoPlayerCache.getCache())
+                .setCacheWriteDataSinkFactory(
+                        new CacheDataSink.Factory().setCache(SharedExoPlayerCache.getCache())
+                )
                 .setEventListener(new CacheDataSource.EventListener() {
                     @Override
                     public void onCachedBytesRead(long cacheSizeBytes, long cachedBytesRead) {
