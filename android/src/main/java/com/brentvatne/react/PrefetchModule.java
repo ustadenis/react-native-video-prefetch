@@ -27,8 +27,8 @@ public class PrefetchModule extends ReactContextBaseJavaModule {
         CachingJobIntentService.enqueuePrefetchWork(reactContext, url);
     }
 
-        @ReactMethod
-    public void updateCacheSize(long cacheSize) {
+    @ReactMethod
+    public void setCacheMaxSize(long cacheSize) {
         if (reactContext == null) return;
         SharedExoPlayerCache.updateCacheSize(reactContext, cacheSize);
     }
