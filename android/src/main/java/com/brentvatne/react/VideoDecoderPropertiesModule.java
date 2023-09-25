@@ -12,6 +12,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 
 import com.brentvatne.exoplayer.cache.CachingJobIntentService;
+import com.brentvatne.exoplayer.cache.SharedExoPlayerCache;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
@@ -106,6 +107,17 @@ public class VideoDecoderPropertiesModule extends ReactContextBaseJavaModule {
     public void prefetch(String url) {
         Log.d(TAG, "prefetch: " + url);
         CachingJobIntentService.enqueuePrefetchWork(reactContext, url);
+    }
+
+    @ReactMethod
+    public void updateCacheSize(long cacheSize) {
+        if (reactContext == null) return;
+        SharedExoPlayerCache.updateCacheSize(reactContext, cacheSize);
+    }
+
+    @ReactMethod
+    public void clearCache() {
+        SharedExoPlayerCache.releaseCache();
     }
 
     public VideoDecoderPropertiesModule(ReactApplicationContext reactContext) {
