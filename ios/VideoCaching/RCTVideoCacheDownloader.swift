@@ -132,7 +132,7 @@ extension RCTVideoCacheDownloader: AVAssetDownloadDelegate {
 
                 break
             case (NSURLErrorDomain, NSURLErrorUnknown):
-                fatalError("Downloading HLS streams is not supported in the simulator.")
+                print("Downloading HLS streams is not supported in the simulator.")
 
             default:
                 print("An unexpected error occured \(error)")
