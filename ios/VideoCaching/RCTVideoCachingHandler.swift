@@ -5,7 +5,6 @@ import Promises
 
 class RCTVideoCachingHandler: NSObject, DVAssetLoaderDelegatesDelegate {
 
-    private var _videoCache:RCTVideoCache! = RCTVideoCache.sharedInstance()
     private var _m3u8VideoCache:RCTVideoCacheStorage! = RCTVideoCacheStorage.instance
     var playerItemPrepareText: ((AVAsset?, NSDictionary?) -> AVPlayerItem)?
 
@@ -28,28 +27,18 @@ class RCTVideoCachingHandler: NSObject, DVAssetLoaderDelegatesDelegate {
     func playerItemForSourceUsingCache(uri:String!, assetOptions options:NSDictionary!) -> Promise<AVPlayerItem?> {
         let url = URL(string: uri)
         return getItemForUri(uri)
-        .then{ [weak self] (videoCacheStatus:RCTVideoCacheStatus,cachedAsset:AVAsset?) -> AVPlayerItem in
-            guard let self = self, let playerItemPrepareText = self.playerItemPrepareText else {throw  NSError(domain: "", code: 0, userInfo: nil)}
-            switch (videoCacheStatus) {
-            case .missingFileExtension:
-                DebugLog("Could not generate cache key for uri '\(uri)'. It is currently not supported to cache urls that do not include a file extension. The video file will not be cached. Checkout https://github.com/react-native-community/react-native-video/blob/master/docs/caching.md")
-                let asset:AVURLAsset! = AVURLAsset(url: url!, options:options as! [String : Any])
-                return playerItemPrepareText(asset, options)
-                
-            case .unsupportedFileExtension:
-                DebugLog("Could not generate cache key for uri '\(uri)'. The file extension of that uri is currently not supported. The video file will not be cached. Checkout https://github.com/react-native-community/react-native-video/blob/master/docs/caching.md")
-                let asset:AVURLAsset! = AVURLAsset(url: url!, options:options as! [String : Any])
-                return playerItemPrepareText(asset, options)
-                
-            default:
-                if let cachedAsset = cachedAsset {
-                    DebugLog("Playing back uri '\(uri)' from cache")
-                    // See note in playerItemForSource about not being able to support text tracks & caching
-                    return AVPlayerItem(asset: cachedAsset)
-                }
+        .then{ [weak self] (cachedAsset: AVAsset?) -> AVPlayerItem in
+            guard let self = self else {
+                throw  NSError(domain: "", code: 0, userInfo: nil)
             }
-            
-            let asset:DVURLAsset! = DVURLAsset(url:url, options:options as! [String : Any], networkTimeout:10000)
+
+            if let cachedAsset = cachedAsset {
+                DebugLog("Playing back uri '\(uri ?? "")' from cache")
+                // See note in playerItemForSource about not being able to support text tracks & caching
+                return AVPlayerItem(asset: cachedAsset)
+            }
+
+            let asset:DVURLAsset! = DVURLAsset(url:url, options:options as? [String : Any], networkTimeout:10000)
             asset.loaderDelegate = self
             
             /* More granular code to have control over the DVURLAsset
@@ -68,27 +57,24 @@ class RCTVideoCachingHandler: NSObject, DVAssetLoaderDelegatesDelegate {
         }
     }
 
-    func getItemForUri(_ uri:String) ->  Promise<(videoCacheStatus:RCTVideoCacheStatus,cachedAsset:AVAsset?)> {
-        return Promise<(videoCacheStatus:RCTVideoCacheStatus,cachedAsset:AVAsset?)> { [weak self] fulfill, reject in
+    func getItemForUri(_ uri:String) ->  Promise<AVAsset?> {
+        return Promise<AVAsset?> { [weak self] fulfill, reject in
 
             guard let assetURL = URL(string: uri) else {
                 reject(NSError(domain: "", code: 2))
                 return
             }
 
-            let cachedAsset: AVAsset
-            let videoCacheStatus: RCTVideoCacheStatus
+            let cachedAsset: AVAsset?
 
             if let localFileLocation = self?._m3u8VideoCache.storedItemUrl(forUri: assetURL.absoluteString) {
                 cachedAsset = AVURLAsset(url: localFileLocation)
-                videoCacheStatus = .available
                 self?._m3u8VideoCache.updateAsset(uri: uri, lastAccessedDate: Date())
             } else {
-                cachedAsset = AVURLAsset(url: assetURL)
-                videoCacheStatus = .notAvailable
+                cachedAsset = nil
             }
 
-            fulfill((videoCacheStatus, cachedAsset))
+            fulfill(cachedAsset)
         }
     }
     
