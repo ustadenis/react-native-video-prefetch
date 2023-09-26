@@ -38,7 +38,7 @@ public class SharedExoPlayerCache {
         StandaloneDatabaseProvider databaseProvider = new StandaloneDatabaseProvider(context);
         File cacheFolder = new File(context.getCacheDir().getAbsolutePath() + CACHE_FOLDER);
         Log.d(TAG, "initCache() " + cacheFolder.getAbsolutePath());
-        simpleCacheReference = new AtomicReference<>(new SimpleCache(cacheFolder, lruCacheEvictor, databaseProvider))
+        simpleCacheReference = new AtomicReference<>(new SimpleCache(cacheFolder, lruCacheEvictor, databaseProvider));
     }
 
     public static SimpleCache getCache() {
