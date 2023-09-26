@@ -19,6 +19,8 @@ public class CachingJobIntentService extends JobIntentService implements CacheWr
     private static final String JOB_NAME = "CachingJobIntentService.Prefetch";
     private static final String URL = "CachingJobIntentService.URL";
 
+    private static final Long CHUNK_LENGTH = 1024L * 1024L * 5; // 5 MB
+
     public static void enqueuePrefetchWork(Context context, String url) {
         Log.d(TAG, "enqueuePrefetchWork: " + url);
         Intent intent = new Intent(JOB_NAME);
@@ -32,9 +34,15 @@ public class CachingJobIntentService extends JobIntentService implements CacheWr
         Log.d(TAG, "onHandleWork() called with: intent = [" + urlToPrefetch + "]");
         Uri uri = Uri.parse(urlToPrefetch);
 
+        DataSpec dataSpec = new DataSpec(uri, 0, CHUNK_LENGTH);
 
         try {
-            CacheWriter cacheWriter = new CacheWriter(DataSourceUtil.cacheDataSourceAtomicReference.get(), new DataSpec(uri), null, this);
+            CacheWriter cacheWriter = new CacheWriter(
+                    DataSourceUtil.cacheDataSourceAtomicReference.get(),
+                    dataSpec,
+                    null,
+                    this
+            );
             cacheWriter.cache();
         } catch (Exception e) {
             Log.e(TAG, "onHandleWork: " + e.getMessage(), e);
